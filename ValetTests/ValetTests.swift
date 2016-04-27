@@ -15,7 +15,9 @@ class TestValet: VALValet {}
 
 class ValetTests: XCTestCase
 {
-    let valet = VALValet(identifier: "valet_testing", accessibility: VALAccessibility.WhenUnlocked)!
+    let valet = VALValet(identifier: "valet_testing", accessibility: .WhenUnlocked)!
+    let key = "key"
+    let passcode = "topsecret"
 
     override func setUp()
     {
@@ -27,7 +29,7 @@ class ValetTests: XCTestCase
 
     func test_twoValetsWithSameConfiguration_haveEqualPointers()
     {
-        let otherValet = VALValet(identifier: "valet_testing", accessibility: VALAccessibility.WhenUnlocked)!
+        let otherValet = VALValet(identifier: "valet_testing", accessibility: .WhenUnlocked)
         XCTAssert(otherValet == valet)
         XCTAssert(otherValet === valet)
     }
@@ -43,8 +45,53 @@ class ValetTests: XCTestCase
     {
         let firstSubclassValet = TestValet(identifier: "valet_testing", accessibility: .WhenUnlocked)
         let secondSubclassValet = TestValet(identifier: "valet_testing", accessibility: .WhenUnlocked)
+        XCTAssertNotNil(firstSubclassValet)
         XCTAssert(firstSubclassValet == secondSubclassValet)
         XCTAssert(firstSubclassValet === secondSubclassValet)
     }
-    
+
+    // MARK: canAccessKeychain
+
+    func test_canAccessKeychain()
+    {
+        XCTAssertTrue(valet.canAccessKeychain())
+    }
+
+    func test_canAccessKeychain_Performance()
+    {
+        self.measureBlock {
+            self.valet.canAccessKeychain()
+        }
+    }
+
+    // MARK: stringForKey / setStringForKey
+
+    func test_stringForKey_isNilForInvalidKey()
+    {
+        XCTAssertNil(valet.stringForKey(key))
+    }
+
+    func test_stringForKey_retrievesStringForValidKey()
+    {
+        XCTAssertTrue(valet.setString(passcode, forKey: key))
+        XCTAssertEqual(passcode, valet.stringForKey(key))
+    }
+
+    func test_stringForKey_withDifferingIdentifier_isNil()
+    {
+        XCTAssertTrue(valet.setString(passcode, forKey: key))
+
+        let otherValet = VALValet(identifier: "wat", accessibility: .AfterFirstUnlock)
+        XCTAssertNotNil(otherValet)
+        XCTAssertNil(otherValet?.stringForKey(key))
+    }
+
+    func test_stringForKey_withDifferingAccessibility_isNil()
+    {
+        XCTAssertTrue(valet.setString(passcode, forKey: key))
+
+        let otherValet = VALValet(identifier: "valet_testing", accessibility: .AfterFirstUnlockThisDeviceOnly)
+        XCTAssertNotNil(otherValet)
+        XCTAssertNil(otherValet?.stringForKey(key))
+    }
 }
