@@ -103,27 +103,6 @@
 
 #pragma mark - Behavior Tests
 
-- (void)test_initialization_twoValetsWithSameConfigurationHaveEqualPointers;
-{
-    // Attempting to initialize a second Valet with an equivalent configuration to one already in existance should return a shared instance.
-    VALValet *otherValet = [[VALValet alloc] initWithIdentifier:self.valet.identifier accessibility:self.valet.accessibility];
-    [self.additionalValets addObject:otherValet];
-    
-    XCTAssertEqual(self.valet, otherValet);
-    XCTAssertEqualObjects(self.valet, otherValet);
-    
-    // This should be true for subclasses, as well.
-    VALTestingValet *otherTestingValet = [[VALTestingValet alloc] initWithIdentifier:self.testingValet.identifier accessibility:self.testingValet.accessibility];
-    [self.additionalValets addObject:otherTestingValet];
-    
-    XCTAssertEqual(self.testingValet, otherTestingValet);
-    XCTAssertEqualObjects(self.testingValet, otherTestingValet);
-    
-    // Subclass instances should not be semantically equivalent to the parent class instances.
-    XCTAssertNotEqual(self.valet, otherTestingValet);
-    XCTAssertNotEqualObjects(self.valet, otherTestingValet);
-}
-
 - (void)test_initialization_invalidArgumentsCauseFailure;
 {
     id nilValue = nil;
@@ -190,47 +169,6 @@
 #endif
 }
 
-- (void)test_canAccessKeychain_performance;
-{
-    [self measureBlock:^{
-        [self.valet canAccessKeychain];
-    }];
-}
-
-- (void)test_stringForKey_retrievesString;
-{
-    XCTAssertNil([self.valet stringForKey:self.key]);
-    
-    XCTAssertTrue([self.valet setString:self.string forKey:self.key]);
-    XCTAssertEqualObjects([self.valet stringForKey:self.key], self.string);
-}
-
-- (void)test_stringForKey_invalidKeyFailsToRetrieveString;
-{
-    NSString *string = [self.valet stringForKey:@"abcdefg"];
-    XCTAssertNil(string, @"Expected string with Key for non-existent user to be nil but instead it was %@", string);
-}
-
-- (void)test_stringForKey_differentIdentifierFailsToRetrieveString;
-{
-    XCTAssertTrue([self.valet setString:self.string forKey:self.key]);
-    VALValet *otherValet = [[VALValet alloc] initWithIdentifier:[self.valet.identifier stringByAppendingString:@"_different"] accessibility:VALAccessibilityAlways];
-    [self.additionalValets addObject:otherValet];
-    
-    NSString *string = [otherValet stringForKey:self.key];
-    XCTAssertNil(string, @"Expected string with Key with different identifier to be nil but instead it was %@", string);
-}
-
-- (void)test_stringForKey_differentAccessibilityFailsToRetrieveString;
-{
-    XCTAssertTrue([self.valet setString:self.string forKey:self.key]);
-    VALValet *otherValet = [[VALValet alloc] initWithIdentifier:self.valet.identifier accessibility:VALAccessibilityAfterFirstUnlockThisDeviceOnly];
-    [self.additionalValets addObject:otherValet];
-    
-    NSString *string = [otherValet stringForKey:self.key];
-    XCTAssertNil(string, @"Expected string with Key with different accessibility to be nil but instead it was %@", string);
-}
-
 - (void)test_setStringForKey_invalidArgumentsCauseFailure;
 {
     id nilValue = nil;
@@ -289,58 +227,12 @@
 }
 #endif
 
+
+/// ???? WAT ????
 - (void)test_setStringForKey_nonStringData;
 {
     XCTAssertTrue([self.valet setString:self.string forKey:self.key]);
     XCTAssertEqualObjects([self.valet stringForKey:self.key], self.string);
-}
-
-- (void)test_setStringForKey_successfullyUpdatesWhenRemoveObjectForKeyIsCalledConcurrently;
-{
-    dispatch_queue_t setStringQueue = dispatch_queue_create("Set String Queue", DISPATCH_QUEUE_CONCURRENT);
-    dispatch_queue_t removeObjectQueue = dispatch_queue_create("Remove Object Queue", DISPATCH_QUEUE_CONCURRENT);
-    
-    for (NSUInteger testCount = 0; testCount < 50; testCount++) {
-        dispatch_async(setStringQueue, ^{
-            XCTAssertTrue([self.valet setString:self.string forKey:self.key]);
-        });
-        
-        dispatch_async(removeObjectQueue, ^{
-            XCTAssertTrue([self.valet removeObjectForKey:self.key]);
-        });
-    }
-    
-    // Now that we've enqueued 50 concurrent setString:forKey: and removeObjectForKey: calls, wait for them all to finish.
-    XCTestExpectation *expectationSetStringQueue = [self expectationWithDescription:@"Set String Queue"];
-    XCTestExpectation *expectationRemoveObjectQueue = [self expectationWithDescription:@"Remove Object Queue"];
-    
-    dispatch_barrier_async(setStringQueue, ^{
-        [expectationSetStringQueue fulfill];
-    });
-    
-    dispatch_barrier_async(removeObjectQueue, ^{
-        [expectationRemoveObjectQueue fulfill];
-    });
-    
-    [self waitForExpectationsWithTimeout:5.0 handler:nil];
-}
-
-- (void)test_stringForKey_canReadDataWrittenToValetOnDifferentThread;
-{
-    dispatch_queue_t setStringQueue = dispatch_queue_create("Set String Queue", DISPATCH_QUEUE_CONCURRENT);
-    dispatch_queue_t stringForKeyQueue = dispatch_queue_create("String For Key Queue", DISPATCH_QUEUE_CONCURRENT);
-    
-    XCTestExpectation *expectationStringForKeyQueue = [self expectationWithDescription:NSStringFromSelector(_cmd)];
-    dispatch_async(setStringQueue, ^{
-        XCTAssertTrue([self.valet setString:self.string forKey:self.key]);
-        
-        dispatch_async(stringForKeyQueue, ^{
-            XCTAssertEqualObjects([self.valet stringForKey:self.key], self.string);
-            [expectationStringForKeyQueue fulfill];
-        });
-    });
-    
-    [self waitForExpectationsWithTimeout:5.0 handler:nil];
 }
 
 - (void)test_stringForKey_canReadDataWrittenToValetAllocatedOnDifferentThread;
