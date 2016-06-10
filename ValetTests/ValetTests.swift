@@ -20,6 +20,8 @@ class ValetTests: XCTestCase
     let key = "key"
     let passcode = "topsecret"
 
+    // MARK: XCTestCase
+
     override func setUp()
     {
         super.setUp()
@@ -96,12 +98,20 @@ class ValetTests: XCTestCase
         XCTAssertNil(otherValet?.stringForKey(key))
     }
 
-    func test_setStringForKey_failsWithInvalidArguments()
+    func test_setStringForKey_successfullyUpdatesExistingKey()
     {
-//        var nilVar: NSString?
-//        nilVar = nil
-//        let nilValue = nilVar as NSString!
-//        XCTAssertFalse(valet.setString(nilValue, forKey: key))
+        XCTAssertNil(valet.stringForKey(key))
+        valet.setString("1", forKey: key)
+        XCTAssertEqual("1", valet.stringForKey(key))
+        valet.setString("2", forKey: key)
+        XCTAssertEqual("2", valet.stringForKey(key))
+    }
+
+    func disabled_test_setStringForKey_failsWithInvalidArguments()
+    {
+        var nilVar: String?
+        nilVar = nil
+        XCTAssertFalse(valet.setString(nilVar!, forKey: key))
     }
 
     // MARK: Concurrency
@@ -162,4 +172,30 @@ class ValetTests: XCTestCase
 
         self.waitForExpectationsWithTimeout(5.0, handler: nil)
     }
+
+    // MARK: Removal
+
+    // MARK: Migration
+
+    func test_migrateObjectsMatchingQueryRemoveOnCompletion_failsIfNoItemsMatchQuery()
+    {
+        let queryWithNoMatches = [
+            kSecClass as String: kSecClassGenericPassword as String,
+            kSecAttrService as String: "Valet_Does_Not_Exist"
+        ]
+        // .code is an Int, call this out -> ew
+        XCTAssertEqual(valet.migrateObjectsMatchingQuery(queryWithNoMatches, removeOnCompletion: false)?.code, VALMigrationError.NoItemsToMigrateFound)
+//        XCTAssert(queryWithNoMatches != nil)
+    }
 }
+
+
+#if os(OSX)
+class ValetMacTests: XCTestCase
+{
+    func test_setStringForKey_neutralizesMacOSAccessControlListVuln()
+    {
+        XCTFail("Write me pls")
+    }
+}
+#endif

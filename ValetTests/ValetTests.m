@@ -181,24 +181,6 @@
     XCTAssertFalse([self.valet setString:@"" forKey:@""]);
 }
 
-- (void)test_setStringForKey_successfullySetsAndUpdatesString;
-{
-    // Ensure the string doesn't already exist.
-    XCTAssertNil([self.valet stringForKey:self.key]);
-    
-    // Set the string.
-    XCTAssertTrue([self.valet setString:self.string forKey:self.key]);
-    
-    // Verify the updated string is there.
-    XCTAssertEqualObjects([self.valet stringForKey:self.key], self.string);
-    
-    // Setting the string a second time should update the existing record.
-    XCTAssertTrue([self.valet setString:self.secondaryString forKey:self.key]);
-    
-    // Verify the updated string is there.
-    XCTAssertEqualObjects([self.valet stringForKey:self.key], self.secondaryString);
-}
-
 - (void)test_setStringForKey_ValetsWithSameIdentifierButDifferentAccessibilityCanSetStringForSameKey;
 {
     VALValet *otherValet = [[VALValet alloc] initWithIdentifier:self.valet.identifier accessibility:self.valet.accessibility+1];
