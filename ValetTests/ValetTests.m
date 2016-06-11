@@ -471,53 +471,11 @@
 }
 #endif
 
-- (void)test_migrateObjectsMatchingQueryRemoveOnCompletion_failsIfNoItemsFoundMatchingQueryInput;
+- (void)test_migrateObjectsMatchingQueryRemoveOnCompletion_failsOnBadQueryInput_secureEnclave;
 {
-    NSDictionary *queryWithNoMatches = @{ (__bridge id)kSecClass : (__bridge id)kSecClassGenericPassword, (__bridge id)kSecAttrService : @"Valet_Does_Not_Exist" };
-    XCTAssertEqual([self.valet migrateObjectsMatchingQuery:queryWithNoMatches removeOnCompletion:NO].code, VALMigrationErrorNoItemsToMigrateFound);
-    XCTAssertEqual([self.valet migrateObjectsMatchingQuery:queryWithNoMatches removeOnCompletion:YES].code, VALMigrationErrorNoItemsToMigrateFound);
-}
-
-- (void)test_migrateObjectsMatchingQueryRemoveOnCompletion_failsIfQueryInputHasNoClass;
-{
-    [self.valet setString:self.string forKey:self.key];
-    
-    // Test that it succeeds before we test to see if it fails.
-    XCTAssertNil([self.testingValet migrateObjectsMatchingQuery:self.valet.baseQuery removeOnCompletion:NO]);
-    
-    NSMutableDictionary *baseQueryNoClass = [self.valet.baseQuery mutableCopy];
-    [baseQueryNoClass removeObjectForKey:(__bridge id)kSecClass];
-    XCTAssertEqual([self.testingValet migrateObjectsMatchingQuery:baseQueryNoClass removeOnCompletion:NO].code, VALMigrationErrorInvalidQuery);
-}
-
-- (void)test_migrateObjectsMatchingQueryRemoveOnCompletion_failsOnBadQueryInput;
-{
-    XCTAssertEqual([self.valet migrateObjectsMatchingQuery:@{} removeOnCompletion:NO].code, VALMigrationErrorInvalidQuery);
-    XCTAssertEqual([self.valet migrateObjectsMatchingQuery:@{} removeOnCompletion:YES].code, VALMigrationErrorInvalidQuery);
-    
-    NSDictionary *invalidQuery = @{ (__bridge id)kSecClass : (__bridge id)kSecClassGenericPassword,
-                                    (__bridge id)kSecMatchLimit : (__bridge id)kSecMatchLimitOne };
-    XCTAssertEqual([self.valet migrateObjectsMatchingQuery:invalidQuery removeOnCompletion:NO].code, VALMigrationErrorInvalidQuery);
-    
-    invalidQuery = @{ (__bridge id)kSecClass : (__bridge id)kSecClassGenericPassword,
-                      (__bridge id)kSecReturnData : (__bridge id)kCFBooleanTrue };
-    XCTAssertEqual([self.valet migrateObjectsMatchingQuery:invalidQuery removeOnCompletion:NO].code, VALMigrationErrorInvalidQuery);
-    
-    invalidQuery = @{ (__bridge id)kSecClass : (__bridge id)kSecClassGenericPassword,
-                      (__bridge id)kSecReturnAttributes : (__bridge id)kCFBooleanFalse };
-    XCTAssertEqual([self.valet migrateObjectsMatchingQuery:invalidQuery removeOnCompletion:NO].code, VALMigrationErrorInvalidQuery);
-    
-    invalidQuery = @{ (__bridge id)kSecClass : (__bridge id)kSecClassGenericPassword,
-                      (__bridge id)kSecReturnRef : (__bridge id)kCFBooleanTrue };
-    XCTAssertEqual([self.valet migrateObjectsMatchingQuery:invalidQuery removeOnCompletion:NO].code, VALMigrationErrorInvalidQuery);
-    
-    invalidQuery = @{ (__bridge id)kSecClass : (__bridge id)kSecClassGenericPassword,
-                      (__bridge id)kSecReturnPersistentRef : (__bridge id)kCFBooleanFalse };
-    XCTAssertEqual([self.valet migrateObjectsMatchingQuery:invalidQuery removeOnCompletion:NO].code, VALMigrationErrorInvalidQuery);
-    
 #if VAL_SECURE_ENCLAVE_SDK_AVAILABLE
     if ([VALSecureEnclaveValet supportsSecureEnclaveKeychainItems]) {
-        invalidQuery = @{ (__bridge id)kSecClass : (__bridge id)kSecClassGenericPassword,
+        NSDictionary *invalidQuery = @{ (__bridge id)kSecClass : (__bridge id)kSecClassGenericPassword,
                           (__bridge id)kSecUseOperationPrompt : @"Migration Prompt" };
         XCTAssertEqual([self.secureEnclaveValet migrateObjectsMatchingQuery:invalidQuery removeOnCompletion:NO].code, VALMigrationErrorInvalidQuery);
     }

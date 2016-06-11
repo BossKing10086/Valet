@@ -17,6 +17,7 @@ class ValetTests: XCTestCase
 {
     static let identifier = "valet_testing"
     let valet = VALValet(identifier: identifier, accessibility: .WhenUnlocked)!
+    let subclassValet = TestValet(identifier: identifier, accessibility: .WhenUnlocked)!
     let key = "key"
     let passcode = "topsecret"
 
@@ -26,6 +27,7 @@ class ValetTests: XCTestCase
     {
         super.setUp()
         valet.removeAllObjects()
+        subclassValet.removeAllObjects()
     }
 
     // MARK: Equality
@@ -39,18 +41,16 @@ class ValetTests: XCTestCase
 
     func test_valetSubclassWithSameConfiguration_doesNotHaveEqualPointer()
     {
-        let subclassValet = TestValet(identifier: ValetTests.identifier, accessibility: .WhenUnlocked)
         XCTAssertFalse(valet == subclassValet)
         XCTAssertFalse(valet === subclassValet)
     }
 
     func test_twoValetSubclassesWithSameConfiguration_haveEqualPointers()
     {
-        let firstSubclassValet = TestValet(identifier: ValetTests.identifier, accessibility: .WhenUnlocked)
         let secondSubclassValet = TestValet(identifier: ValetTests.identifier, accessibility: .WhenUnlocked)
-        XCTAssertNotNil(firstSubclassValet)
-        XCTAssert(firstSubclassValet == secondSubclassValet)
-        XCTAssert(firstSubclassValet === secondSubclassValet)
+        XCTAssertNotNil(subclassValet)
+        XCTAssert(subclassValet == secondSubclassValet)
+        XCTAssert(subclassValet === secondSubclassValet)
     }
 
     // MARK: canAccessKeychain
@@ -109,6 +109,7 @@ class ValetTests: XCTestCase
 
     func disabled_test_setStringForKey_failsWithInvalidArguments()
     {
+        // TODO: nilValue tap dance test
         var nilVar: String?
         nilVar = nil
         XCTAssertFalse(valet.setString(nilVar!, forKey: key))
@@ -177,15 +178,99 @@ class ValetTests: XCTestCase
 
     // MARK: Migration
 
-    func test_migrateObjectsMatchingQueryRemoveOnCompletion_failsIfNoItemsMatchQuery()
+    func test_migrateObjectsMatchingQuery_failsIfNoItemsMatchQuery()
     {
+        let noItemsFoundError = VALMigrationError.NoItemsToMigrateFound
+
         let queryWithNoMatches = [
             kSecClass as String: kSecClassGenericPassword as String,
             kSecAttrService as String: "Valet_Does_Not_Exist"
         ]
-        // .code is an Int, call this out -> ew
-        XCTAssertEqual(valet.migrateObjectsMatchingQuery(queryWithNoMatches, removeOnCompletion: false)?.code, VALMigrationError.NoItemsToMigrateFound)
-//        XCTAssert(queryWithNoMatches != nil)
+
+        XCTAssertEqual(noItemsFoundError, _migrationError(valet.migrateObjectsMatchingQuery(queryWithNoMatches, removeOnCompletion: false)))
+        XCTAssertEqual(noItemsFoundError, _migrationError(valet.migrateObjectsMatchingQuery(queryWithNoMatches, removeOnCompletion: true)))
+
+        // Our test Valet has not yet been written to, migration should fail:
+        XCTAssertEqual(noItemsFoundError, _migrationError(subclassValet.migrateObjectsMatchingQuery(valet.baseQuery, removeOnCompletion: false)))
+        XCTAssertEqual(noItemsFoundError, _migrationError(subclassValet.migrateObjectsMatchingQuery(valet.baseQuery, removeOnCompletion: true)))
+    }
+
+    func test_migrateObjectsMatchingQuery_failsIfQueryHasNoInputClass()
+    {
+        valet.setString(passcode, forKey: key)
+
+        // Test for base query success.
+        XCTAssertNil(subclassValet.migrateObjectsMatchingQuery(valet.baseQuery, removeOnCompletion: false))
+        XCTAssertEqual(passcode, subclassValet.stringForKey(key))
+
+        var mutableQuery = valet.baseQuery
+        mutableQuery.removeValueForKey(kSecClass as String)
+
+        // Without a kSecClass, the migration should fail.
+        XCTAssertEqual(VALMigrationError.InvalidQuery, _migrationError(subclassValet.migrateObjectsMatchingQuery(mutableQuery, removeOnCompletion: false)))
+    }
+
+    func test_migrateObjectsMatchingQuery_failsForBadQueries()
+    {
+        let invalidQueryError = VALMigrationError.InvalidQuery
+
+        XCTAssertEqual(invalidQueryError, _migrationError(valet.migrateObjectsMatchingQuery([:], removeOnCompletion: false)))
+        XCTAssertEqual(invalidQueryError, _migrationError(valet.migrateObjectsMatchingQuery([:], removeOnCompletion: true)))
+
+        var invalidQuery: [String: AnyObject] = [
+            kSecClass as String: kSecClassGenericPassword as String,
+            kSecMatchLimit as String: kSecMatchLimitOne as String
+        ]
+        // Migration queries should have kSecMatchLimit set to .All
+        XCTAssertEqual(invalidQueryError, _migrationError(valet.migrateObjectsMatchingQuery(invalidQuery, removeOnCompletion: false)))
+
+        invalidQuery = [
+            kSecClass as String: kSecClassGenericPassword as String,
+            kSecReturnData as String: kCFBooleanTrue as AnyObject
+        ]
+        // Migration queries do not support kSecReturnData
+        XCTAssertEqual(invalidQueryError, _migrationError(valet.migrateObjectsMatchingQuery(invalidQuery, removeOnCompletion: false)))
+
+        invalidQuery = [
+            kSecClass as String: kSecClassGenericPassword as String,
+            kSecReturnRef as String: kCFBooleanTrue as AnyObject
+        ]
+        // Migration queries do not support kSecReturnRef
+        XCTAssertEqual(invalidQueryError, _migrationError(valet.migrateObjectsMatchingQuery(invalidQuery, removeOnCompletion: false)))
+
+        invalidQuery = [
+            kSecClass as String: kSecClassGenericPassword as String,
+            kSecReturnPersistentRef as String: kCFBooleanFalse as AnyObject
+        ]
+        // Migration queries must have kSecReturnPersistentRef set to true
+        XCTAssertEqual(invalidQueryError, _migrationError(valet.migrateObjectsMatchingQuery(invalidQuery, removeOnCompletion: false)))
+
+
+        invalidQuery = [
+            kSecClass as String: kSecClassGenericPassword as String,
+            kSecReturnAttributes as String: kCFBooleanFalse as AnyObject
+        ]
+        // Migration queries must have kSecReturnAttributes set to true
+        XCTAssertEqual(invalidQueryError, _migrationError(valet.migrateObjectsMatchingQuery(invalidQuery, removeOnCompletion: false)))
+
+        // TODO: Secure Enclave
+    }
+
+    func test_migrateObjectsMatchingQuery_bailsOutIfConflictExistsInQueryResult()
+    {
+        let migrationValet = VALValet(identifier: "Migrate_Me", accessibility: .AfterFirstUnlock)!
+        let conflictingValet = TestValet(identifier: "Migrate_Me", accessibility: .AfterFirstUnlock)!
+
+        migrationValet.setString(passcode, forKey: key)
+        conflictingValet.setString(passcode, forKey:key)
+    }
+
+    // MARK: Private - Helpers
+
+    // The NSError.code -> VALMigrationError conversion is gross right now:
+    private func _migrationError(error: NSError?) -> VALMigrationError
+    {
+        return VALMigrationError(rawValue: UInt(error!.code))!
     }
 }
 
@@ -195,6 +280,7 @@ class ValetMacTests: XCTestCase
 {
     func test_setStringForKey_neutralizesMacOSAccessControlListVuln()
     {
+        // TODO: Mac Access Control List VULN
         XCTFail("Write me pls")
     }
 }

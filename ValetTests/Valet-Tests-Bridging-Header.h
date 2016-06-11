@@ -3,3 +3,5 @@
 //
 
 #import "Valet.h"
+
+#import "VALValet_Protected.h"
